@@ -101,7 +101,7 @@ void test_getMemberID_not_found() {
 void test_borrowBook_invalid_member() {
     int mem_fd = open("member.dat", O_RDWR);
     int book_fd = open("book.dat", O_RDWR);
-    int result = borrowBook(11, 2, 0, mem_fd, book_fd);
+    int result = borrowBook(11, 2, -1, mem_fd, book_fd);
 
     CU_ASSERT(result == -1);
 }
@@ -109,7 +109,7 @@ void test_borrowBook_invalid_member() {
 void test_returnBook_invalid_member() {
     int mem_fd = open("member.dat", O_RDWR);
     int book_fd = open("book.dat", O_RDWR);
-    int result = returnBook(11, 2, 0, mem_fd, book_fd);
+    int result = returnBook(11, 2, -1, mem_fd, book_fd);
 
     CU_ASSERT(result == -1);
 }
@@ -117,7 +117,7 @@ void test_returnBook_invalid_member() {
 void test_return_without_borrow() {
     int mem_fd = open("member.dat", O_RDWR);
     int book_fd = open("book.dat", O_RDWR);
-    int result = returnBook(2, 2, 0, mem_fd, book_fd);
+    int result = returnBook(2, 2, -1, mem_fd, book_fd);
 
     CU_ASSERT(result == -1);
 }
@@ -143,6 +143,169 @@ void test_searchBook_not_found() {
     CU_ASSERT(numMatches == 0);
 }
 
+void test_searchBookByAuthor_found() {
+    book books[50];
+    int book_fd = open("book.dat", O_RDWR);
+    int numMatches = searchBookByAuthor("Author5", books, book_fd);
+
+    CU_ASSERT(numMatches == 1);
+    CU_ASSERT(books[0].book_id == 5);
+    CU_ASSERT(strcmp(books[0].author, "Author5") == 0);
+    close(book_fd);
+}
+
+void test_searchBookByAuthor_not_found() {
+    book books[50];
+    int book_fd = open("book.dat", O_RDWR);
+    int numMatches = searchBookByAuthor("Unknown Author", books, book_fd);
+
+    CU_ASSERT(numMatches == 0);
+    close(book_fd);
+}
+
+void test_getAllBooks() {
+    book books[50];
+    int book_fd = open("book.dat", O_RDWR);
+    int count = getAllBooks(books, book_fd);
+
+    CU_ASSERT(count == 10);  // Verifying that the count matches initialized data
+
+    for (int i = 0; i < count; i++) {
+        book expected_book;
+        expected_book.book_id = i + 1;
+        sprintf(expected_book.title, "Book%d", i + 1);
+        sprintf(expected_book.author, "Author%d", i + 1);
+        expected_book.copies = 5;
+        expected_book.available = 5;
+
+        CU_ASSERT(compare_book(books[i], expected_book) == 1);  // Comparing each book
+    }
+    close(book_fd);
+}
+
+void test_addBook() {
+    int book_fd = open("book.dat", O_RDWR);
+    int sd = -1;  
+    book newBook = {0, "New Book", "New Author", 10, 10};
+
+    addBook(newBook, sd, book_fd);
+
+    book books[50];
+    int count = getAllBooks(books, book_fd);
+    CU_ASSERT(count > 0);
+    CU_ASSERT(books[count - 1].book_id != -1);
+    CU_ASSERT(strcmp(books[count - 1].title, "New Book") == 0);
+    close(book_fd);
+}
+
+void test_removeBook() {
+    int book_fd = open("book.dat", O_RDWR);
+    int sd = -1;  
+    removeBook(1, sd, book_fd);
+
+    book books[50];
+    int count = getAllBooks(books, book_fd);
+    for (int i = 0; i < count; i++) {
+        CU_ASSERT(books[i].book_id != 1);
+    }
+    close(book_fd);
+}
+
+void test_borrowBook_success() {
+    int book_fd = open("book.dat", O_RDWR);
+    int member_fd = open("member.dat", O_RDWR);
+
+    borrowBook(1, 1, -1, member_fd, book_fd);
+
+    member members[50];
+    getAllMembers(members, member_fd);
+    CU_ASSERT(members[0].num_books == 1);
+    CU_ASSERT(members[0].books[0].book_id == 1);
+
+    book books[50];
+    getAllBooks(books, book_fd);
+    CU_ASSERT(books[0].available == 4);
+
+    close(member_fd);
+    close(book_fd);
+}
+
+void test_returnBook_success() {
+    int book_fd = open("book.dat", O_RDWR);
+    int member_fd = open("member.dat", O_RDWR);
+
+    returnBook(1, 1, -1, member_fd, book_fd);
+
+    member members[50];
+    getAllMembers(members, member_fd);
+    CU_ASSERT(members[0].num_books == 0);
+
+    book books[50];
+    getAllBooks(books, book_fd);
+    CU_ASSERT(books[0].available == 5);
+
+    close(member_fd);
+    close(book_fd);
+}
+
+
+void test_getAllMembers() {
+    member members[50];
+    int member_fd = open("member.dat", O_RDWR);
+    int count = getAllMembers(members, member_fd);
+
+    CU_ASSERT(count == 10); 
+    for (int i = 0; i < count; i++) {
+        char expected_username[20], expected_password[20];
+        sprintf(expected_username, "user%d", i + 1);
+        sprintf(expected_password, "pass%d", i + 1);
+
+        CU_ASSERT(members[i].member_id == i + 1);
+        CU_ASSERT(strcmp(members[i].username, expected_username) == 0);
+        CU_ASSERT(strcmp(members[i].password, expected_password) == 0);
+        CU_ASSERT(members[i].num_books == 0);
+    }
+    close(member_fd);
+}
+
+
+void test_addMember() {
+    int member_fd = open("member.dat", O_RDWR);
+    int sd = -1;  
+
+    member newMember = {0, "newuser", "newpass", 0, {}};
+    addMember(newMember, sd, member_fd);
+
+    member members[50];
+    int count = getAllMembers(members, member_fd);
+
+    CU_ASSERT(count > 0);
+    CU_ASSERT(members[count - 1].member_id != -1);  // Ensure new member is added
+    CU_ASSERT(strcmp(members[count - 1].username, "newuser") == 0);
+    CU_ASSERT(strcmp(members[count - 1].password, "newpass") == 0);
+
+    close(member_fd);
+}
+
+void test_removeMember() {
+    int member_fd = open("member.dat", O_RDWR);
+    int book_fd = open("book.dat", O_RDWR);
+    int sd = -1; 
+    removeMember(1, sd, member_fd, book_fd);
+
+    member members[50];
+    int count = getAllMembers(members, member_fd);
+
+    for (int i = 0; i < count; i++) {
+        CU_ASSERT(members[i].member_id != 1);  // Ensure member with ID 1 is removed
+    }
+
+    close(member_fd);
+    close(book_fd);
+}
+
+
+
 int main() {
     CU_initialize_registry();
     CU_pSuite suite = CU_add_suite("AddTestSuite", 0, 0);
@@ -156,11 +319,21 @@ int main() {
     CU_add_test(suite, "test of searchMember() if not found", test_searchMember_not_found);
     CU_add_test(suite, "test of getMemberID() if found", test_getMemberID_found);
     CU_add_test(suite, "test of getMemberID() if not found", test_getMemberID_not_found);
+    CU_add_test(suite, "test of getAllBooks()", test_getAllBooks);
+    CU_add_test(suite, "test of getAllMembers()", test_getAllMembers);
     CU_add_test(suite, "test of borrowBook() if member not found", test_borrowBook_invalid_member);
+    CU_add_test(suite, "test borrowBook() success scenario", test_borrowBook_success);
+    CU_add_test(suite, "test returnBook() success scenario", test_returnBook_success);
     CU_add_test(suite, "test of returnBook() if member not found", test_returnBook_invalid_member);
     CU_add_test(suite, "test of returnBook() when the book is not borrowed", test_return_without_borrow);
     CU_add_test(suite, "test of searchBook() when the book is found", test_searchBook_found);
     CU_add_test(suite, "test of searchBook() when the book is found", test_searchBook_not_found);
+    CU_add_test(suite, "test of searchBookByAuthor() when found", test_searchBookByAuthor_found);
+    CU_add_test(suite, "test of searchBookByAuthor() when not found", test_searchBookByAuthor_not_found);
+    CU_add_test(suite, "test of addBook()", test_addBook);
+    CU_add_test(suite, "test of removeBook()", test_removeBook);
+    CU_add_test(suite, "test of addMember()", test_addMember);
+    CU_add_test(suite, "test of removeMember()", test_removeMember);
 
     CU_basic_run_tests();
     CU_cleanup_registry();
