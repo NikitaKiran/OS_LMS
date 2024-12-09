@@ -1,0 +1,8 @@
+# Ignore binary files used for data storage
+*.dat
+
+# Ignore compiled executables
+init
+unit_test
+server
+client
