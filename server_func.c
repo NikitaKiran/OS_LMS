@@ -316,7 +316,6 @@ int getAllMembers(member members[], int fd){
 void addBook(book b, int sd, int fd){
     int count = getBookCount(fd);
     int maxcount = getMaxBookID(fd);
-    printf("Maxcount: %d\n", maxcount);
     struct flock lock;
     lock.l_type = F_WRLCK;
     lock.l_whence = SEEK_SET;
