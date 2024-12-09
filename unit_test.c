@@ -335,6 +335,7 @@ int main() {
     CU_add_test(suite, "test of addMember()", test_addMember);
     CU_add_test(suite, "test of removeMember()", test_removeMember);
 
+    CU_basic_set_mode(CU_BRM_VERBOSE);
     CU_basic_run_tests();
     CU_cleanup_registry();
 }
